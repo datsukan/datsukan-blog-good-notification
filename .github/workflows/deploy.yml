@@ -24,7 +24,7 @@ jobs:
         run: go get github.com/aws/aws-lambda-go/lambda
 
       - name: go build
-        run: GOOS=linux go build -o datsukan-blog-good-notification main.go
+        run: GOOS=linux go build -o datsukan-blog-good-notification *.go
 
       - name: create zip
         run: zip datsukan-blog-good-notification.zip datsukan-blog-good-notification
