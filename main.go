@@ -36,6 +36,7 @@ func main() {
 	lambda.Start(controller)
 }
 
+// controller は、AWS Lambda 上での実行処理を行う
 func controller(ctx context.Context, sqsEvent events.SQSEvent) error {
 	articleID, err := articleID(sqsEvent)
 	if err != nil {
