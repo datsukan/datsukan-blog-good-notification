@@ -13,7 +13,7 @@ import (
 )
 
 type Input struct {
-	ID string
+	ID string `json:"id"`
 }
 
 var isLocal bool
