@@ -16,12 +16,15 @@ type Input struct {
 	ID string
 }
 
+var isLocal bool
+
 func main() {
 	t := flag.Bool("local", false, "ローカル実行か否か")
 	ID := flag.String("id", "", "ローカル実行用の記事ID")
 	flag.Parse()
 
-	isLocal, err := isLocal(t, ID)
+	var err error
+	isLocal, err = isLocalExec(t, ID)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -52,8 +55,8 @@ func controller(ctx context.Context, sqsEvent events.SQSEvent) error {
 	return nil
 }
 
-// isLocal はローカル環境の実行であるかを判定する
-func isLocal(t *bool, ID *string) (bool, error) {
+// isLocalExec はローカル環境の実行であるかを判定する
+func isLocalExec(t *bool, ID *string) (bool, error) {
 	if !*t {
 		return false, nil
 	}

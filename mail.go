@@ -49,9 +49,11 @@ func send(articleID string) error {
 
 // loadEnv は、環境変数を読み込む。
 func loadEnv() error {
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("could not read environment variables")
-		return err
+	if isLocal {
+		if err := godotenv.Load(); err != nil {
+			fmt.Println("could not read environment variables")
+			return err
+		}
 	}
 
 	from = os.Getenv("MAIL_FROM")
