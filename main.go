@@ -38,13 +38,15 @@ func main() {
 
 // controller は、AWS Lambda 上での実行処理を行う
 func controller(ctx context.Context, sqsEvent events.SQSEvent) error {
-	articleID, err := articleID(sqsEvent)
+	articleIDs, err := articleIDs(sqsEvent)
 	if err != nil {
 		return err
 	}
 
-	if err := useCase(articleID); err != nil {
-		return err
+	for _, articleID := range articleIDs {
+		if err := useCase(articleID); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -77,16 +79,21 @@ func useCase(articleID string) error {
 }
 
 // articleID は、SQSのイベント情報から記事IDを取得する
-func articleID(sqsEvent events.SQSEvent) (string, error) {
+func articleIDs(sqsEvent events.SQSEvent) ([]string, error) {
 	if len(sqsEvent.Records) == 0 {
-		return "", errors.New("request content does not exist")
+		return nil, errors.New("request content does not exist")
 	}
 
-	b := []byte(sqsEvent.Records[0].Body)
-	var input Input
-	if err := json.Unmarshal(b, &input); err != nil {
-		return "", err
+	var ids []string
+	for _, record := range sqsEvent.Records {
+		b := []byte(record.Body)
+		var input Input
+		if err := json.Unmarshal(b, &input); err != nil {
+			return nil, err
+		}
+
+		ids = append(ids, input.ID)
 	}
 
-	return input.ID, nil
+	return ids, nil
 }
