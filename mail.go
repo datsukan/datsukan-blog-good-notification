@@ -1,37 +1,35 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
-	contentful "github.com/contentful-labs/contentful-go"
+	attribute "github.com/datsukan/datsukan-blog-article-attribute"
 	"github.com/joho/godotenv"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
-// type Lang はContentfulから取得したFieldの共通構造
-type Lang struct {
-	Ja string `json:"ja"`
-}
+var from, to, password, accessToken, spaceID string
 
-var from, to, password string
-
+// send は、メールを送信する。
 func send(articleID string) error {
 	if err := loadEnv(); err != nil {
 		return err
 	}
 
-	articleSlug, articleTitle, err := fetchArticleAttr(articleID)
+	aa, err := attribute.New(articleID, accessToken, spaceID)
 	if err != nil {
 		return err
 	}
 
-	message := makeMessage(articleSlug, articleTitle)
+	if err := aa.Get(); err != nil {
+		return err
+	}
+
+	message := makeMessage(aa.Slug, aa.Title)
 
 	// メール送信を行い、レスポンスを表示
 	client := sendgrid.NewSendClient(password)
@@ -59,109 +57,15 @@ func loadEnv() error {
 	from = os.Getenv("MAIL_FROM")
 	to = os.Getenv("MAIL_TO")
 	password = os.Getenv("SMTP_PASSWORD")
+	accessToken = os.Getenv("CONTENTFUL_ACCESS_TOKEN")
+	spaceID = os.Getenv("CONTENTFUL_SPACE_ID")
+
+	if accessToken == "" || spaceID == "" {
+		m := fmt.Sprintf("environment variable not set [ token: %v, spaceID: %v ]", accessToken, spaceID)
+		return errors.New(m)
+	}
 
 	return nil
-}
-
-// LoadContentfulEnv はContentful SDKの接続情報を環境変数から読み込む
-func loadContentfulEnv() (string, string, error) {
-	token := os.Getenv("CONTENTFUL_ACCESS_TOKEN")
-	spaceID := os.Getenv("CONTENTFUL_SPACE_ID")
-
-	if token == "" || spaceID == "" {
-		m := fmt.Sprintf("environment variable not set [ token: %v, spaceID: %v ]", token, spaceID)
-		fmt.Println(m)
-		return "", "", errors.New(m)
-	}
-
-	return token, spaceID, nil
-}
-
-// NewContentfulSDK はContentful SDKのクライアントインスタンスを生成する
-func newContentfulSDK() (*contentful.Client, *contentful.Space, error) {
-	token, spaceID, err := loadContentfulEnv()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cma := contentful.NewCMA(token)
-	space, err := cma.Spaces.Get(spaceID)
-
-	if err != nil {
-		fmt.Println(err)
-		return nil, nil, err
-	}
-
-	return cma, space, nil
-}
-
-// fieldToString はContentfulのFieldを文字列に変換する
-func fieldToString(field interface{}) (string, error) {
-	byte, err := json.Marshal(field)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-
-	var body Lang
-	if err := json.Unmarshal(byte, &body); err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-
-	return body.Ja, nil
-}
-
-// articleAttr は記事情報を取得する
-func articleAttr(entry *contentful.Entry) (string, string, error) {
-	var slug, title string
-	var err error
-	for attr, field := range entry.Fields {
-		switch attr {
-		case "slug":
-			slug, err = fieldToString(field)
-			if err != nil {
-				fmt.Println(err)
-				return "", "", err
-			}
-		case "title":
-			value, err := fieldToString(field)
-			if err != nil {
-				fmt.Println(err)
-				return "", "", err
-			}
-			title = strings.Replace(value, "/", "／", -1)
-		}
-	}
-
-	return slug, title, nil
-}
-
-func fetchArticleAttr(articleID string) (string, string, error) {
-	// Contentful SDK のクライアントインスタンスを生成する
-	cma, space, err := newContentfulSDK()
-	if err != nil {
-		return "", "", err
-	}
-
-	// Contentfulから記事情報を取得する
-	entry, err := cma.Entries.Get(space.Sys.ID, articleID)
-	if err != nil {
-		fmt.Println(err)
-		return "", "", err
-	}
-
-	// Contentfulから記事情報が取得できない場合、処理を終了する
-	if entry == nil {
-		return "", "", errors.New("article not found")
-	}
-
-	slug, title, err := articleAttr(entry)
-	if err != nil {
-		return "", "", err
-	}
-
-	return slug, title, nil
 }
 
 // makeMessage は、メールメッセージを構築する。
